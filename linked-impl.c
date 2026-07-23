@@ -17,10 +17,15 @@ struct Node* createNode(int val) {
     return newNode;
 }
 
+// global initiation
+pthread_mutex_t list_lock = PTHREAD_MUTEX_INITIALIZER;
+
 void addBeginningNode(struct Node** head, int val) {
     struct Node* newNode = createNode(val);
+    pthread_mutex_lock(&list_lock);
     newNode->nextNode = *head; // read shared memory
     *head = newNode;           // write shared memory
+    pthread_mutex_unlock(&list_lock);
 }
 
 void addEndNode(struct Node** head, int val) {
@@ -131,5 +136,7 @@ int main() {
     if (actual != expected) {
         printf("RACE CONDITION DETECTED!\n");
     }
+
+    pthread_mutex_destroy(&list_lock);
     return 0;
 }
