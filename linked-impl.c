@@ -1,5 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
+
+#define NUM_THREADS 4
+#define INSERTIONS_PER_THREAD 10000
 
 struct Node {
     int val;
@@ -15,8 +19,8 @@ struct Node* createNode(int val) {
 
 void addBeginningNode(struct Node** head, int val) {
     struct Node* newNode = createNode(val);
-    newNode->nextNode = *head;
-    *head = newNode;
+    newNode->nextNode = *head; // read shared memory
+    *head = newNode;           // write shared memory
 }
 
 void addEndNode(struct Node** head, int val) {
@@ -88,22 +92,44 @@ void print(struct Node* head) {
     printf("NULL\n");
 }
 
-int main(){
-    struct Node* head = NULL;
-    addBeginningNode(&head, 10);
-    print(head);
+struct Node* head = NULL;
 
-    addEndNode(&head, 20);
-    print(head);
+void* threadInsertUnsafe(void* arg) {
+    for (int i = 0; i < INSERTIONS_PER_THREAD; i++) {
+        addBeginningNode(&head, i);
+    }
+    return NULL;
+}
 
-    deleteLast(&head);
-    print(head);
+int countNodes(struct Node* head) {
+    int count = 0;
+    while (head != NULL) {
+        count++;
+        head = head->nextNode;
+    }
+    return count;
+}
 
-    addEndNode(&head, 30);
-    print(head);
+int main() {
+    pthread_t threads[NUM_THREADS];
 
-    addAtPosition(&head, 20, 1);
-    print(head);
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_create(&threads[i], NULL, threadInsertUnsafe, NULL);
+    }
 
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_join(threads[i], NULL); // wait for thread to terminate
+    }
+
+    int expected = NUM_THREADS * INSERTIONS_PER_THREAD;
+    int actual = countNodes(head);
+
+    printf("******TEST********\n");
+    printf("Expected nodes: %d\n", expected);
+    printf("Actual nodes:   %d\n", actual);
+    
+    if (actual != expected) {
+        printf("RACE CONDITION DETECTED!\n");
+    }
     return 0;
 }
